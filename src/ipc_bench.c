@@ -225,6 +225,7 @@ static void bench_mmap_file_spin(bench_mode_t mode, size_t size, uint64_t iters)
     unlink(path);
     size_t bytes = sizeof(spin_channel_t) + size;
     if (ftruncate(fd, (off_t)bytes) != 0) die("ftruncate spin");
+// file-backed mmap
     spin_channel_t *ch = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (ch == MAP_FAILED) die("mmap file spin");
     run_spin("mmap-file-spin", ch, mode, size, iters);
@@ -262,6 +263,7 @@ static void bench_mmap_file(bench_mode_t mode, size_t size, uint64_t iters) {
 static void bench_posix_shm(bench_mode_t mode, size_t size, uint64_t iters) {
     char name[64];
     snprintf(name, sizeof(name), "/ipc_bench_%ld_%d", (long)getpid(), rand());
+    // POSIX 
     int fd = shm_open(name, O_CREAT | O_EXCL | O_RDWR, 0600);
     if (fd < 0) die("shm_open");
     shm_unlink(name);
@@ -359,6 +361,7 @@ static void bench_file(bench_mode_t mode, size_t size, uint64_t iters) {
         if (!tmp) _exit(2);
         for (uint64_t i = 0; i < iters; i++) {
             if (sem_wait_intr(&sync->can_read) != 0) _exit(3);
+            // PREAD
             ssize_t r = pread(fd, tmp, size, 0);
             if (r != (ssize_t)size) _exit(4);
             if (mode == MODE_LATENCY) {
@@ -374,6 +377,7 @@ static void bench_file(bench_mode_t mode, size_t size, uint64_t iters) {
     uint64_t t0 = now_ns();
     for (uint64_t i = 0; i < iters; i++) {
         if (sem_wait_intr(&sync->can_write) != 0) die("sem_wait file");
+        // PWRITE
         ssize_t w = pwrite(fd, buf, size, 0);
         if (w != (ssize_t)size) die("pwrite");
         if (sem_post(&sync->can_read) != 0) die("sem_post file");
